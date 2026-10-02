@@ -41,10 +41,12 @@
 
 `dist` 目录中生成两个 ZIP：
 
-- `EU4MenuPatch-1.37.5-experimental-drop-in.zip`：直接复制安装包，只包含 `plugins` 下的补丁、说明和许可证。
-- `EU4MenuPatch-1.37.5-experimental.zip`：源码、DLL、构建与安装工具、文档和校验信息。
+- `EU4MenuPatch-1.37.5-v0.1.1-experimental-drop-in.zip`：直接复制安装包，只包含 `plugins` 下的补丁、说明和许可证。
+- `EU4MenuPatch-1.37.5-v0.1.1-experimental.zip`：源码、DLL、构建与安装工具、文档和校验信息。
 
 GitHub Release 提供直接复制安装包；源码可以通过 GitHub 的 Source code 下载。
+
+发布说明和包内说明应区分开发候选版的游戏内测试与最终 DLL 的验证范围。保护检查通过不代表多人战役或模组兼容性已经验证。
 
 ## 版本校验
 

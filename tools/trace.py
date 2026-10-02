@@ -59,11 +59,73 @@ rpc.exports={
 };
 """
 
+MULTIPLAYER_SCRIPT = r"""
+trace('frontend-on-exit',0x10d8330);
+trace('steam-lobby-close',0x1658d50);
+trace('steam-lobby-disconnect',0x165b0c0);
+trace('steam-lobby-start',0x165c370);
+let lastEligibility = null;
+Interceptor.attach(base.add(0x10eb5c0), {
+  onLeave(ret) {
+    const app=base.add(0x242bf50).readPointer();
+    const world=base.add(0x233fe78).readPointer();
+    const state={event:'multiplayer-eligibility',result:ret.toInt32(),
+      reason:world.add(0x23b4).readU32(),checksumReady:app.add(0x328).readU8()};
+    const key=JSON.stringify(state);
+    if (key!==lastEligibility) { send(state); lastEligibility=key; }
+  }
+});
+let lastPage = null;
+Interceptor.attach(base.add(0x10d2e80), {
+  onEnter(args) { this.idler=args[0]; },
+  onLeave() {
+    const app=this.idler.add(0x330).readPointer();
+    const state={event:'frontend-page',idler:this.idler.toString(),
+      page:this.idler.add(0x900).readU32(),
+      current:app.add(0x40).readPointer().toString(),
+      pending:app.add(0x70).readPointer().toString()};
+    const key=JSON.stringify(state);
+    if (key!==lastPage) { send(state); lastPage=key; }
+  }
+});
+const steamHooks = new Set();
+function attachSteamMatchmaking() {
+  const matchmaking=base.add(0x2326b20).readPointer();
+  if (matchmaking.isNull()) return;
+  const vtable=matchmaking.readPointer();
+  for (const [name,offset] of [['create-lobby',0x68],['join-lobby',0x70],['leave-lobby',0x78]]) {
+    const target=vtable.add(offset).readPointer();
+    const key=name+target;
+    if (steamHooks.has(key)) continue;
+    steamHooks.add(key);
+    Interceptor.attach(target, {
+      onEnter(args) {
+        // Different Steam interface methods may share an implementation. Keep
+        // only calls made on the game's actual matchmaking interface object.
+        this.match=args[0].equals(matchmaking);
+        if (this.match) send({event:'steam-'+name,phase:'enter',
+          arg:args[1].toString(),returnRva:rva(this.returnAddress)});
+      },
+      onLeave(ret) {
+        if (this.match) send({event:'steam-'+name,phase:'leave',value:ret.toString()});
+      }
+    });
+  }
+  send({event:'steam-matchmaking-observed',object:matchmaking.toString()});
+}
+const steamTimer=setInterval(() => {
+  if (!base.add(0x2326b20).readPointer().isNull()) {
+    attachSteamMatchmaking();clearInterval(steamTimer);
+  }
+},1000);
+"""
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("pid", type=int)
     parser.add_argument("--duration", type=int, default=3600)
+    parser.add_argument("--multiplayer", action="store_true")
     args = parser.parse_args()
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
     kernel.OpenProcess.argtypes = [wintypes.DWORD,wintypes.BOOL,wintypes.DWORD]
@@ -87,7 +149,7 @@ def main():
             output.write(line+"\n")
             output.flush()
             print(line, flush=True)
-        script = session.create_script(SCRIPT)
+        script = session.create_script(SCRIPT + (MULTIPLAYER_SCRIPT if args.multiplayer else ""))
         script.on("message", message)
         script.load()
         (ROOT / f"private/state-{args.pid}.json").write_text(

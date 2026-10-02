@@ -50,9 +50,22 @@ def inspect(pid):
         cb_database = pointer(base+0x242ba90)
         history = pointer(base+0x233fea0)
         idler_vtable=pointer(idler)-base
+        services=pointer(app+0x348)
+        lobby=pointer(services+0x10) if services else 0
+        steam_lobby=lobby if lobby and pointer(lobby)-base == 0x1da6d38 else 0
         return {"pid":pid,"base":hex(base),"app":hex(app),"world":hex(world),
             "idler":hex(idler),"idler_vtable_rva":hex(pointer(idler)-base),
             "pending_idler":hex(pointer(app+0x70)),"exit_restart":read(app+0x83,2).hex(),
+            "multiplayer_reason":struct.unpack("<I",read(world+0x23b4,4))[0],
+            "checksum_ready":bool(read(app+0x328,1)[0]),
+            "frontend_page":struct.unpack("<I",read(idler+0x900,4))[0]
+                if idler_vtable == 0x1d5a8c8 else None,
+            "steam_lobby":hex(steam_lobby),
+            "steam_lobby_id":hex(pointer(steam_lobby+0x1c0)) if steam_lobby else None,
+            "steam_create_pending":bool(pointer(steam_lobby+0x2b0)) if steam_lobby else None,
+            "steam_join_pending":bool(pointer(steam_lobby+0x2e0)) if steam_lobby else None,
+            "steam_search_pending":bool(pointer(steam_lobby+0x310)) if steam_lobby else None,
+            "steam_hosting":bool(read(steam_lobby+0x299,1)[0]) if steam_lobby else None,
             "history":hex(history),"cb_database":hex(cb_database),
             "cb_count":(pointer(cb_database+0xd8)-pointer(cb_database+0xd0))//8 if cb_database else 0,
             "pending_effects":(pointer(effects+8)-pointer(effects))//8 if effects else 0,

@@ -2,9 +2,17 @@
 
 让《欧陆风云 IV》在点击 **Back** 或 **Exit to Menu** 时直接返回主菜单，省去退出并重新启动游戏的等待。
 
-适用于 **EU4 1.37.5.0 Inca / Windows x64**。当前为实验版。
+适用于 **EU4 1.37.5.0 Inca / Windows x64**。当前版本：**v0.1.1-experimental**。
 
-[下载补丁](https://github.com/YozoraTempest/EU4-Menu-Patch/releases/download/v0.1.0-experimental/EU4MenuPatch-1.37.5-experimental-drop-in.zip) · [发布说明](https://github.com/YozoraTempest/EU4-Menu-Patch/releases/tag/v0.1.0-experimental) · [问题反馈](https://github.com/YozoraTempest/EU4-Menu-Patch/issues)
+[下载补丁](https://github.com/YozoraTempest/EU4-Menu-Patch/releases/download/v0.1.1-experimental/EU4MenuPatch-1.37.5-v0.1.1-experimental-drop-in.zip) · [发布说明](https://github.com/YozoraTempest/EU4-Menu-Patch/releases/tag/v0.1.1-experimental) · [问题反馈](https://github.com/YozoraTempest/EU4-Menu-Patch/issues)
+
+## v0.1.1 更新
+
+- 返回主菜单后，等待菜单切换完成、校验和就绪及 Steam 房间状态清空，再恢复多人入口。
+- 退出时清理 Steam 房间、房主状态、加入请求和房间搜索回调，重新注册房间事件处理。
+- 释放上一局的迷你地图控制器及其窗口、按钮回调，处理房间列表右下角残留战役界面的问题。
+
+本版仍为实验版。开发候选版已测试原版 Steam 房间列表和连续建房；双客户端联机和战役同步尚未验证。
 
 ## 安装
 
@@ -35,8 +43,10 @@ Europa Universalis IV/
 ## 兼容性
 
 - **游戏版本：** 1.37.5.0 Inca，Windows x64。补丁会检查 `eu4.exe` 的 SHA-256 和目标指令，校验失败时拒绝应用。校验值见[构建说明](docs/build.md#版本校验)。
-- **测试范围：** 单人、非铁人；MEIOU 与四个附属模组的测试组合。已验证选择国家界面的 Back，以及连续两局推进到下个月后返回主菜单。
-- **尚未验证：** 铁人模式、多人游戏、长期战役和其他模组组合。
+- **本次测试：** 原版、非铁人、Steam 联机。开发候选版已验证单人选国界面 Back 后进入多人房间列表，以及连续两次建房、进入选国地图、返回主菜单。迷你地图修订的日志已记录两次战役退出时释放控制器，界面残留是否消失及重新开局后的按钮响应尚待人工确认。
+- **发布构建：** 已通过进程名称、调试副本路径和可执行文件哈希的保护检查。最终打包的 DLL 尚未完成完整游戏内回归。
+- **尚未验证：** 双客户端加入、退出及重新加入房间，联机战役同步、铁人模式和长期战役。
+- **模组：** 本版未复测 MEIOU 或其他模组。v0.1.0 的 MEIOU 与四个附属模组测试记录仅适用于旧版。
 
 ## 排查问题
 

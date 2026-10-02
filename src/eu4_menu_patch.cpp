@@ -14,6 +14,11 @@ static std::uint8_t* image;
 static wchar_t log_path[MAX_PATH];
 static void* volatile pending_frontend_app;
 static volatile LONG installation_status;
+// Accessed only by the engine's main thread during menu transitions.
+static std::uint8_t* pending_menu_app;
+static void* pending_menu_idler;
+static std::uint32_t previous_multiplayer_reason;
+static bool pending_session_logged;
 static constexpr wchar_t isolated_exe[] =
     L"D:\\Astra-Paradox\\repos\\EU4MenuPatch\\private\\runtime\\eu4.exe";
 static constexpr unsigned char expected_hash[32] = {
@@ -77,30 +82,145 @@ template <typename Function> static Function engine(std::uintptr_t rva) {
     return reinterpret_cast<Function>(image+rva);
 }
 
-static void construct_menu(std::uint8_t* app) {
+static std::uint32_t multiplayer_reason() {
+    auto* world = *reinterpret_cast<std::uint8_t**>(image+0x233fe78);
+    return *reinterpret_cast<std::uint32_t*>(world+0x23b4);
+}
+
+static std::uint8_t* steam_lobby(std::uint8_t* app) {
+    auto* services = *reinterpret_cast<std::uint8_t**>(app+0x348);
+    auto* lobby = services ? *reinterpret_cast<std::uint8_t**>(services+0x10) : nullptr;
+    return lobby && *reinterpret_cast<void**>(lobby) == image+0x1da6d38 ? lobby : nullptr;
+}
+
+static void leave_steam_session(std::uint8_t* app) {
+    auto* lobby = steam_lobby(app);
+    if (!lobby) return;
+    const auto lobby_id = *reinterpret_cast<std::uint64_t*>(lobby+0x1c0);
+    const auto create_call = *reinterpret_cast<std::uint64_t*>(lobby+0x2b0);
+    const auto join_call = *reinterpret_cast<std::uint64_t*>(lobby+0x2e0);
+    auto* search_call = reinterpret_cast<std::uint64_t*>(lobby+0x310);
+    if (!lobby_id && !create_call && !join_call && !*search_call && !lobby[0x299] && !lobby[0x29b]) return;
+    log("Steam session cleanup begin lobby=%llx create_pending=%u join_pending=%u search_pending=%u hosting=%u",
+        lobby_id,create_call != 0,join_call != 0,*search_call != 0,lobby[0x299]);
+    // Cancel the outstanding lobby search using the same import and callback
+    // object as CSteamLobby's destructor, without destroying the reusable lobby.
+    if (*search_call) {
+        auto unregister = *reinterpret_cast<void(**)(void*,std::uint64_t)>(image+0x1b67730);
+        unregister(lobby+0x300,*search_call);
+        *search_call = 0;
+        lobby[0x29c] = 0;
+    }
+    // Close disables hosting, leaves the Steam lobby, and unregisters the
+    // engine's lobby event context. Disconnect clears the outstanding join
+    // result. Initialize registers that context again for the next session.
+    engine<void(*)(void*)>(0x1658d50)(lobby);
+    engine<void(*)(void*)>(0x165b0c0)(lobby);
+    engine<void(*)(void*)>(0x1658cb0)(lobby);
+    log("Steam session cleanup complete lobby=%llx create_pending=%u join_pending=%u search_pending=%u hosting=%u",
+        *reinterpret_cast<std::uint64_t*>(lobby+0x1c0),
+        *reinterpret_cast<std::uint64_t*>(lobby+0x2b0) != 0,
+        *reinterpret_cast<std::uint64_t*>(lobby+0x2e0) != 0,*search_call != 0,lobby[0x299]);
+}
+
+static bool steam_session_is_idle(std::uint8_t* app) {
+    auto* lobby = steam_lobby(app);
+    if (!lobby) {
+        if (!pending_session_logged) {
+            log("multiplayer restore deferred: Steam lobby service unavailable");
+            pending_session_logged = true;
+        }
+        return false;
+    }
+    const auto lobby_id = *reinterpret_cast<std::uint64_t*>(lobby+0x1c0);
+    const auto create_call = *reinterpret_cast<std::uint64_t*>(lobby+0x2b0);
+    const auto join_call = *reinterpret_cast<std::uint64_t*>(lobby+0x2e0);
+    if (lobby_id || create_call || join_call || lobby[0x299]) {
+        if (!pending_session_logged) {
+            log("multiplayer restore deferred: lobby=%llx create_pending=%u join_pending=%u hosting=%u",
+                lobby_id,create_call != 0,join_call != 0,lobby[0x299]);
+            pending_session_logged = true;
+        }
+        return false;
+    }
+    return true;
+}
+
+static void restore_multiplayer_access(void* opaque_idler) {
+    if (opaque_idler != pending_menu_idler || !pending_menu_app) return;
+    auto* idler = static_cast<std::uint8_t*>(opaque_idler);
+    auto* app = pending_menu_app;
+    // SetNextIdler defers destruction of the old frontend until the next engine
+    // iteration. Restore eligibility only once the replacement main menu owns
+    // the current slot, its first native update has completed, and the checksum
+    // is ready. Never change the platform's own Steam/login eligibility checks.
+    if (*reinterpret_cast<void**>(app+0x40) != idler ||
+        *reinterpret_cast<void**>(app+0x70) != nullptr ||
+        *reinterpret_cast<std::uint32_t*>(idler+0x900) != 0 || !app[0x328]) return;
+    auto* world = *reinterpret_cast<std::uint8_t**>(image+0x233fe78);
+    auto* reason = reinterpret_cast<std::uint32_t*>(world+0x23b4);
+    const auto before = *reason;
+    if (before == 1 && previous_multiplayer_reason == 1 && !steam_session_is_idle(app)) return;
+    if (before == 1 && previous_multiplayer_reason != 0) {
+        // ResetGame normalizes every nonzero reason to 1. Preserve restrictions
+        // such as Nudge (2) rather than mistaking them for ordinary session use.
+        *reason = previous_multiplayer_reason == 1 ? 0 : previous_multiplayer_reason;
+    }
+    log("main menu active; multiplayer reason=%u->%u previous=%u checksum_ready=%u",
+        before,*reason,previous_multiplayer_reason,app[0x328]);
+    pending_menu_app = nullptr;
+    pending_menu_idler = nullptr;
+}
+
+static void construct_menu(std::uint8_t* app,std::uint32_t reason) {
     void* allocation = engine<void*(*)(std::size_t)>(0x1a332d4)(0xb48);
     void* menu = engine<void*(*)(void*,void*,void*,void*)>(0x10d23c0)(
         allocation,*reinterpret_cast<void**>(app+0x350),
         *reinterpret_cast<void**>(app+0x358),app);
     log("menu constructed object=%p",menu);
     engine<void(*)(void*,void**,bool)>(0x14c2530)(app,&menu,false);
+    pending_menu_app = app;
+    // SetNextIdler consumes and nulls the local owning pointer.
+    pending_menu_idler = *reinterpret_cast<void**>(app+0x70);
+    previous_multiplayer_reason = reason;
+    pending_session_logged = false;
     log("menu switch queued next=%p exit=%u restart=%u",
         *reinterpret_cast<void**>(app+0x70),app[0x83],app[0x84]);
+}
+
+static void release_minimap(std::uint8_t* idler) {
+    auto** slot = reinterpret_cast<void**>(idler+0x10e0);
+    void* panel = *slot;
+    if (!panel) return;
+    if (*reinterpret_cast<void**>(panel) != image+0x1d6c620) {
+        log("minimap cleanup refused: unexpected controller vtable");
+        return;
+    }
+    // CInGameIdler's stock exit and destructor do not release this controller.
+    // Its native destructor detaches the window, destroys its GUI children and
+    // event handlers, and frees the controller. Run after ResetGame's GUI
+    // refresh so the load wrapper cannot recreate the window afterwards.
+    *slot = nullptr;
+    engine<void(*)(void*,unsigned int)>(0x1248740)(panel,1);
+    log("in-game minimap controller released");
 }
 
 static void return_to_menu(void* opaque_idler) {
     auto* idler = static_cast<std::uint8_t*>(opaque_idler);
     auto* app = *reinterpret_cast<std::uint8_t**>(idler+0x330);
     void* before = *reinterpret_cast<void**>(image+0x233fe78);
-    log("menu request idler=%p app=%p world=%p",idler,app,before);
+    const auto reason = multiplayer_reason();
+    log("menu request idler=%p app=%p world=%p multiplayer_reason=%u",idler,app,before,reason);
     idler[0x12e9] = 0;
     // The stock in-game load path uses this wrapper to release GUI state before
     // CEU4Application::ResetGame and rebuild the GUI references afterwards.
     engine<void(*)(void*)>(0x80fee0)(idler);
+    leave_steam_session(app);
     engine<void(*)()>(0x5cc160)();
     engine<void(*)(void*,bool)>(0x826c20)(idler,false);
+    release_minimap(idler);
     log("reset complete world=%p",*reinterpret_cast<void**>(image+0x233fe78));
-    construct_menu(app);
+    construct_menu(app,reason);
 }
 
 static void queue_return_to_menu(void* opaque_app) {
@@ -114,6 +234,8 @@ static void queue_return_to_menu(void* opaque_app) {
 static void frontend_tick(void* idler,bool update) {
     auto* app = static_cast<std::uint8_t*>(InterlockedExchangePointer(&pending_frontend_app,nullptr));
     if (app) {
+        const auto reason = multiplayer_reason();
+        leave_steam_session(app);
         log("frontend reset begin world=%p",*reinterpret_cast<void**>(image+0x233fe78));
         engine<void(*)(void*,bool)>(0x210000)(app,false);
         // ResetGame only post-validates reloaded history when the current idler
@@ -124,10 +246,11 @@ static void frontend_tick(void* idler,bool update) {
         engine<void(*)(void*)>(0x7e9b70)(history);
         log("frontend history postvalidate complete");
         log("frontend reset complete world=%p",*reinterpret_cast<void**>(image+0x233fe78));
-        construct_menu(app);
+        construct_menu(app,reason);
         return;
     }
     engine<void(*)(void*,bool)>(0x10d2e80)(idler,update);
+    restore_multiplayer_access(idler);
 }
 
 static LONG CALLBACK observe_exception(EXCEPTION_POINTERS* exception) {
@@ -286,7 +409,7 @@ static DWORD WINAPI install(void* module) {
     }
     AddVectoredExceptionHandler(0,observe_exception);
     InterlockedExchange(&installation_status,1);
-    log("menu transition patch initialized; author=VulonLok");
+    log("menu transition patch initialized; author=VulonLok; version=0.1.1-experimental");
     return 0;
 }
 

@@ -1,6 +1,7 @@
 $ErrorActionPreference='Stop'
 $projectRoot=Split-Path $PSScriptRoot -Parent
-$packageName='EU4MenuPatch-1.37.5-experimental'
+$patchVersion='0.1.1-experimental'
+$packageName='EU4MenuPatch-1.37.5-v'+$patchVersion
 $stageRoot=Join-Path $projectRoot ('build\package-'+[guid]::NewGuid().ToString('N'))
 $files=@(
     'README.md','LICENSE','docs\build.md','docs\direct-install.txt','src\eu4_menu_patch.cpp','src\eu4_menu_patch.rc',
@@ -16,12 +17,14 @@ $dllHash=(Get-FileHash -LiteralPath (Join-Path $stageRoot 'build\eu4_menu_patch.
 $manifest=[ordered]@{
     author='VulonLok'
     status='experimental'
+    patch_version=$patchVersion
     game_version='1.37.5.0 Inca Windows x64'
     game_exe_sha256='9AD3EFE1AF169F40EE577F9DAE5DEBBC87AF6FB8B5450FB345EBF110DC4D771A'
     patch_dll_sha256=$dllHash
     source_sha256=(Get-FileHash -LiteralPath (Join-Path $stageRoot 'src\eu4_menu_patch.cpp') -Algorithm SHA256).Hash
     resource_sha256=(Get-FileHash -LiteralPath (Join-Path $stageRoot 'src\eu4_menu_patch.rc') -Algorithm SHA256).Hash
-    tested_configuration='Single-player, non-Ironman, MEIOU and four local submods; two campaigns advanced to the next month and returned to menu in one process'
+    tested_configuration='Vanilla, non-Ironman, Steam: development candidates exercised single-player Back to multiplayer browser and two host-map-return cycles; minimap controller release recorded on two campaign exits'
+    validation_limits='Final packaged DLL passed guard checks only; minimap visual cleanup and new-campaign controls await confirmation; two-client multiplayer and campaign synchronization untested; mods not revalidated'
     validation_details='README.md'
 }
 $manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stageRoot 'manifest.json') -Encoding utf8
