@@ -3,7 +3,7 @@ $projectRoot=Split-Path $PSScriptRoot -Parent
 $packageName='EU4MenuPatch-1.37.5-experimental'
 $stageRoot=Join-Path $projectRoot ('build\package-'+[guid]::NewGuid().ToString('N'))
 $files=@(
-    'README.md','LICENSE','docs\investigation.md','src\eu4_menu_patch.cpp','src\eu4_menu_patch.rc',
+    'README.md','LICENSE','docs\investigation.md','docs\direct-install.txt','src\eu4_menu_patch.cpp','src\eu4_menu_patch.rc',
     'build\eu4_menu_patch.dll','tools\build.ps1','tools\test-guards.ps1',
     'tools\install.ps1','tools\uninstall.ps1','tools\package.ps1','tests\guard_host.cpp'
 )
@@ -30,3 +30,13 @@ New-Item -ItemType Directory -Path $distRoot -Force | Out-Null
 $zipPath=Join-Path $distRoot ($packageName+'.zip')
 Compress-Archive -Path (Join-Path $stageRoot '*') -DestinationPath $zipPath -Force
 Write-Output $zipPath
+
+$dropinRoot=Join-Path $projectRoot ('build\drop-in-'+[guid]::NewGuid().ToString('N'))
+$dropinPlugins=Join-Path $dropinRoot 'plugins'
+New-Item -ItemType Directory -Path $dropinPlugins -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $projectRoot 'build\eu4_menu_patch.dll') -Destination (Join-Path $dropinPlugins 'eu4_menu_patch.dll')
+Copy-Item -LiteralPath (Join-Path $projectRoot 'docs\direct-install.txt') -Destination (Join-Path $dropinPlugins 'eu4_menu_patch.README.txt')
+Copy-Item -LiteralPath (Join-Path $projectRoot 'LICENSE') -Destination (Join-Path $dropinPlugins 'eu4_menu_patch.LICENSE.txt')
+$dropinZip=Join-Path $distRoot ($packageName+'-drop-in.zip')
+Compress-Archive -Path (Join-Path $dropinRoot '*') -DestinationPath $dropinZip -Force
+Write-Output $dropinZip

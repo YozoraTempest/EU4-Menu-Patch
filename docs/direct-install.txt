@@ -1,0 +1,36 @@
+EU4 Menu Patch — 直接复制版
+署名：VulonLok
+
+适用：EU4 1.37.5.0 Inca，Windows x64。
+需要游戏已有支持加载 plugins 目录 DLL 的 VERSION.dll 插件加载器。
+
+安装
+1. 保存战役，完全退出游戏。
+2. 将本压缩包解压到 eu4.exe 所在目录，合并 plugins 文件夹。
+3. 首次安装会新增 plugins/eu4_menu_patch.dll；更新时覆盖这个同名文件。
+4. 正常启动游戏，补丁自动加载。然后正常使用 Back 和 Exit to Menu。
+
+目录应该是：
+Europa Universalis IV/
+  eu4.exe
+  VERSION.dll
+  plugins/
+    eu4_menu_patch.dll
+    eu4_menu_patch.README.txt
+    eu4_menu_patch.LICENSE.txt
+
+确认生效
+查看 plugins/eu4_menu_patch.log，成功初始化时会记录：
+menu transition patch initialized; author=VulonLok
+
+卸载
+退出游戏后删除 plugins/eu4_menu_patch.dll。
+
+本包只包含本补丁及说明、许可证。补丁在进程内应用机器码修改；
+安装只需放入补丁 DLL，不需要运行 PowerShell 脚本。
+
+当前为实验版，已验证本机 MEIOU 与四个附属模组、单人非铁人、
+两次开局和推进到下个月后返回菜单。长期存档、铁人与多人尚未验证。
+游戏版本不匹配时，DLL 的可执行文件哈希校验会拒绝应用补丁。
+
+源码与详细说明：https://github.com/YozoraTempest/EU4-Menu-Patch

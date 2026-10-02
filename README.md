@@ -8,7 +8,23 @@ EU4 1.37.5.0 Windows x64 的原生返回菜单补丁。使用 DLL 修改当前�
 
 ## 下载与使用
 
-[下载已编译补丁包](https://github.com/YozoraTempest/EU4-Menu-Patch/raw/refs/heads/main/downloads/EU4MenuPatch-1.37.5-experimental.zip)。解压后，从解压目录运行：
+[下载直接复制版](https://github.com/YozoraTempest/EU4-Menu-Patch/raw/refs/heads/main/downloads/EU4MenuPatch-1.37.5-experimental-drop-in.zip)。保存战役并退出游戏，将压缩包解压到 eu4.exe 所在目录，合并 plugins 文件夹，再正常启动游戏即可。
+
+首次安装会新增 `plugins/eu4_menu_patch.dll`，更新时覆盖同名文件。直接复制版还包含说明和 MIT 许可证，目录结构已经摆好：
+
+```text
+Europa Universalis IV/
+  eu4.exe
+  VERSION.dll
+  plugins/
+    eu4_menu_patch.dll
+    eu4_menu_patch.README.txt
+    eu4_menu_patch.LICENSE.txt
+```
+
+游戏需要已有支持加载 plugins 目录 DLL 的 VERSION.dll 加载器。补丁 DLL 启动时会自行校验 eu4.exe 哈希。确认生效可查看 `plugins/eu4_menu_patch.log` 中的 `menu transition patch initialized; author=VulonLok`。
+
+[源码与脚本完整包](https://github.com/YozoraTempest/EU4-Menu-Patch/raw/refs/heads/main/downloads/EU4MenuPatch-1.37.5-experimental.zip)另外提供带安装前校验和旧版备份的脚本安装方式。解压后，从解压目录运行：
 
 ```powershell
 .\tools\install.ps1 -GameDirectory 'D:\SteamLibrary\steamapps\common\Europa Universalis IV'
