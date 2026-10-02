@@ -27,4 +27,8 @@ menu transition patch initialized; author=VulonLok
 
 发布与说明：https://github.com/YozoraTempest/EU4-Menu-Patch/releases
 问题反馈：https://github.com/YozoraTempest/EU4-Menu-Patch/issues
+
+QQ 交流群：欧陆风云 · 永夜的星月回廊
+https://qm.qq.com/q/Csnqqd8rUO
+
 MIT License / Copyright (c) 2026 VulonLok

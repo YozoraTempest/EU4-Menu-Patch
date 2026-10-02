@@ -50,6 +50,10 @@ menu transition patch initialized; author=VulonLok
 
 遇到崩溃、卡住或仍然重启，请[提交 Issue](https://github.com/YozoraTempest/EU4-Menu-Patch/issues/new)，附上游戏版本、模组列表、复现步骤和补丁日志。
 
+## 交流
+
+[加入 QQ 交流群：欧陆风云 · 永夜的星月回廊](https://qm.qq.com/q/Csnqqd8rUO)
+
 ## 构建
 
 源码使用 C++17、MSVC 和 Windows SDK。构建、保护检查和打包命令见[构建说明](docs/build.md)。
