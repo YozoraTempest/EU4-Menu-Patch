@@ -3,7 +3,7 @@ $projectRoot=Split-Path $PSScriptRoot -Parent
 $packageName='EU4MenuPatch-1.37.5-experimental'
 $stageRoot=Join-Path $projectRoot ('build\package-'+[guid]::NewGuid().ToString('N'))
 $files=@(
-    'README.md','LICENSE','docs\investigation.md','docs\direct-install.txt','src\eu4_menu_patch.cpp','src\eu4_menu_patch.rc',
+    'README.md','LICENSE','docs\build.md','docs\direct-install.txt','src\eu4_menu_patch.cpp','src\eu4_menu_patch.rc',
     'build\eu4_menu_patch.dll','tools\build.ps1','tools\test-guards.ps1',
     'tools\install.ps1','tools\uninstall.ps1','tools\package.ps1','tests\guard_host.cpp'
 )
@@ -22,7 +22,7 @@ $manifest=[ordered]@{
     source_sha256=(Get-FileHash -LiteralPath (Join-Path $stageRoot 'src\eu4_menu_patch.cpp') -Algorithm SHA256).Hash
     resource_sha256=(Get-FileHash -LiteralPath (Join-Path $stageRoot 'src\eu4_menu_patch.rc') -Algorithm SHA256).Hash
     tested_configuration='Single-player, non-Ironman, MEIOU and four local submods; two campaigns advanced to the next month and returned to menu in one process'
-    validation_details='docs/investigation.md'
+    validation_details='README.md'
 }
 $manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stageRoot 'manifest.json') -Encoding utf8
 $distRoot=Join-Path $projectRoot 'dist'

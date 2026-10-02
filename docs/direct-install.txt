@@ -1,36 +1,30 @@
-EU4 Menu Patch — 直接复制版
-署名：VulonLok
+EU4 Menu Patch v0.1.0-experimental
+EU4 1.37.5.0 Inca / Windows x64
 
-适用：EU4 1.37.5.0 Inca，Windows x64。
-需要游戏已有支持加载 plugins 目录 DLL 的 VERSION.dll 插件加载器。
+点击 Back 或 Exit to Menu 时直接返回主菜单。
+需要游戏目录中已有 Matanki EU4dll 的 VERSION.dll 加载器。
+加载器项目：https://github.com/matanki-saito/EU4dll
 
 安装
-1. 保存战役，完全退出游戏。
-2. 将本压缩包解压到 eu4.exe 所在目录，合并 plugins 文件夹。
-3. 首次安装会新增 plugins/eu4_menu_patch.dll；更新时覆盖这个同名文件。
-4. 正常启动游戏，补丁自动加载。然后正常使用 Back 和 Exit to Menu。
+1. 保存战役并完全退出游戏。
+2. 将 ZIP 中的 plugins 文件夹复制到 eu4.exe 所在目录，合并同名文件夹。
+3. 正常启动游戏。更新时覆盖 plugins/eu4_menu_patch.dll。
 
-目录应该是：
-Europa Universalis IV/
-  eu4.exe
-  VERSION.dll
-  plugins/
-    eu4_menu_patch.dll
-    eu4_menu_patch.README.txt
-    eu4_menu_patch.LICENSE.txt
-
-确认生效
-查看 plugins/eu4_menu_patch.log，成功初始化时会记录：
-menu transition patch initialized; author=VulonLok
+补丁文件应位于：游戏目录/plugins/eu4_menu_patch.dll
+安装不需要运行脚本。补丁在游戏启动后修改内存中的菜单切换逻辑。
 
 卸载
-退出游戏后删除 plugins/eu4_menu_patch.dll。
+退出游戏，删除 plugins/eu4_menu_patch.dll。
 
-本包只包含本补丁及说明、许可证。补丁在进程内应用机器码修改；
-安装只需放入补丁 DLL，不需要运行 PowerShell 脚本。
+排查问题
+查看 plugins/eu4_menu_patch.log，正常加载时包含：
+menu transition patch initialized; author=VulonLok
+出现 REFUSED 表示补丁未应用；没有日志时检查文件位置和加载器。
 
-当前为实验版，已验证本机 MEIOU 与四个附属模组、单人非铁人、
-两次开局和推进到下个月后返回菜单。长期存档、铁人与多人尚未验证。
-游戏版本不匹配时，DLL 的可执行文件哈希校验会拒绝应用补丁。
+实验版已验证单人、非铁人，以及 MEIOU 与四个附属模组的测试组合：
+选择国家界面的 Back，连续两局推进到下个月后返回主菜单。
+铁人、多人、长期战役和其他模组组合尚未验证。
 
-源码与详细说明：https://github.com/YozoraTempest/EU4-Menu-Patch
+发布与说明：https://github.com/YozoraTempest/EU4-Menu-Patch/releases
+问题反馈：https://github.com/YozoraTempest/EU4-Menu-Patch/issues
+MIT License / Copyright (c) 2026 VulonLok
