@@ -1,0 +1,10 @@
+.venv/
+private/
+build/
+dist/
+__pycache__/
+.pytest_cache/
+*.exe
+*.dll
+*.dmp
+*.sqlite

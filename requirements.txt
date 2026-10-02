@@ -1,0 +1,5 @@
+capstone==5.0.9
+pefile==2024.8.26
+frida==17.20.0
+psutil==7.2.2
+minidump==0.0.24
