@@ -91,29 +91,44 @@ if [ -n "${GITHUB_OUTPUT:-}" ]; then printf 'skip=false\n' >> "$GITHUB_OUTPUT"; 
 
 pwsh -NoProfile -File ./tools/test-package.ps1 -Channel "$channel" -BuildDate "$build_date"
 if [ -z "$release_state" ]; then
-    gh release create "$tag" --repo "$repo" --target "$source_commit" \
-        --draft --prerelease --latest=false --title "EU4 Menu Patch $tag" \
-        --notes-file build/release-notes.md
+    release_id=$(gh api --method POST "repos/$repo/releases" \
+        -f "tag_name=$tag" -f "target_commitish=$source_commit" \
+        -F draft=true -F prerelease=true -f make_latest=false \
+        -f "name=EU4 Menu Patch $tag" -F body=@build/release-notes.md --jq '.id')
+    : > build/existing-assets.txt
 else
-    gh release edit "$tag" --repo "$repo" --prerelease --latest=false \
-        --title "EU4 Menu Patch $tag" --notes-file build/release-notes.md
+    github_value "releases/$release_id" '.assets[] | .name + "|" + (.id | tostring)' > build/existing-assets.txt
+    while IFS='|' read -r asset_name asset_id; do
+        case "$asset_name" in
+            "$player_package"|SHA256SUMS.txt) ;;
+            *) fail "Unexpected draft asset: $asset_name" ;;
+        esac
+    done < build/existing-assets.txt
+    gh api --method PATCH "repos/$repo/releases/$release_id" \
+        -F prerelease=true -f make_latest=false -f "name=EU4 Menu Patch $tag" \
+        -F body=@build/release-notes.md --silent
 fi
-release_id=$(find_release_id)
-[ -n "$release_id" ] || fail 'Draft release was not found.'
-gh release upload "$tag" "dist/$player_package" dist/SHA256SUMS.txt --repo "$repo" --clobber
 
-uploaded=$(github_value "releases/$release_id" '.assets | map(.name) | sort | join(",")')
-[ "$uploaded" = "$expected_assets" ] || fail 'Draft release asset list is incomplete or unexpected.'
-gh api "repos/$repo/releases/$release_id" \
-    --jq '.assets[] | .name + "|" + (.digest // "")' > build/uploaded-assets.raw
-tr -d '\r' < build/uploaded-assets.raw > build/uploaded-assets.txt
-while IFS='|' read -r asset_name asset_digest; do
+while IFS='|' read -r asset_name asset_id; do
+    gh api --method DELETE "repos/$repo/releases/assets/$asset_id" --silent
+done < build/existing-assets.txt
+: > build/uploaded-assets.txt
+for asset_name in "$player_package" SHA256SUMS.txt; do
+    case "$asset_name" in *.zip) content_type=application/zip ;; *) content_type=text/plain ;; esac
+    gh api --method POST "https://uploads.github.com/repos/$repo/releases/$release_id/assets?name=$asset_name" \
+        -H "Content-Type: $content_type" --input "dist/$asset_name" \
+        --jq '.name + "|" + (.digest // "")' > build/uploaded-asset.raw
+    tr -d '\r' < build/uploaded-asset.raw > build/uploaded-asset.txt
+    IFS='|' read -r uploaded_name uploaded_digest < build/uploaded-asset.txt
     asset_hash=$(sha256sum "dist/$asset_name")
     asset_hash=${asset_hash%% *}
-    [ "$asset_digest" = "sha256:$asset_hash" ] || fail "Uploaded asset digest mismatch: $asset_name"
-done < build/uploaded-assets.txt
+    [ "$uploaded_name" = "$asset_name" ] && [ "$uploaded_digest" = "sha256:$asset_hash" ] ||
+        fail "Uploaded asset digest mismatch: $asset_name"
+    cat build/uploaded-asset.txt >> build/uploaded-assets.txt
+done
 
-gh release edit "$tag" --repo "$repo" --draft=false --prerelease --latest=false
+gh api --method PATCH "repos/$repo/releases/$release_id" \
+    -F draft=false -F prerelease=true -f make_latest=false --silent
 url="https://github.com/$repo/releases/tag/$tag"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     printf '[%s](%s)\n' "$tag" "$url" >> "$GITHUB_STEP_SUMMARY"
