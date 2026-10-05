@@ -40,6 +40,7 @@ try {
 } finally { $archive.Dispose() }
 $hash = Get-Sha256 $zipPath
 if ($hash -ne $package.package_sha256) { throw 'ZIP hash does not match package record.' }
-$checksum = [IO.File]::ReadAllText((Join-Path $distRoot 'SHA256SUMS.txt')).TrimEnd()
-if ($checksum -cne "$hash  $($info.PlayerPackage)") { throw 'SHA256SUMS does not match the package.' }
+$checksum = [IO.File]::ReadAllText((Join-Path $distRoot 'SHA256SUMS.txt'))
+$expectedChecksum = "$hash  $($info.PlayerPackage)" + [char]10
+if ($checksum -cne $expectedChecksum) { throw 'SHA256SUMS does not match the package or its LF format.' }
 Write-Output "Package checks passed: $($info.PlayerPackage)"

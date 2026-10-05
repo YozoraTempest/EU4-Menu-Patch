@@ -20,7 +20,7 @@ New-Item -ItemType Directory -Path $distRoot -Force | Out-Null
 $zip = Join-Path $distRoot $info.PlayerPackage
 Compress-Archive -Path $plugins -DestinationPath $zip -Force
 $zipHash = Get-Sha256 $zip
-[IO.File]::WriteAllText((Join-Path $distRoot 'SHA256SUMS.txt'), "$zipHash  $($info.PlayerPackage)" + [Environment]::NewLine, [Text.Encoding]::ASCII)
+[IO.File]::WriteAllText((Join-Path $distRoot 'SHA256SUMS.txt'), "$zipHash  $($info.PlayerPackage)" + [char]10, [Text.Encoding]::ASCII)
 Write-Json (Join-Path $buildRoot 'package-info.json') ([ordered]@{
     author = 'VulonLok'; version = $info.Version; tag = $info.Tag
     channel = $info.Channel; build_date = $info.BuildDate; source_commit = $info.SourceCommit
