@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  pull_request:
+    branches: [main]
+    types: [closed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: menu-patch-publication
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.ref == 'develop' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: windows-2022
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: sh -e {0}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          persist-credentials: false
+      - name: Check release version
+        id: preflight
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: sh ./tools/publish-release.sh --channel Release --check-only
+      - name: Build, test and package
+        if: steps.preflight.outputs.skip != 'true'
+        run: sh ./tools/ci.sh --channel Release
+      - name: Save packages and diagnostics
+        if: always() && steps.preflight.outputs.skip != 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-${{ github.run_id }}
+          retention-days: 30
+          path: |
+            dist/*.zip
+            dist/SHA256SUMS.txt
+            build/*.json
+            build/*.log
+            build/*.pdb
+            build/*.map
+      - name: Publish experimental release
+        if: steps.preflight.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: sh ./tools/publish-release.sh --channel Release

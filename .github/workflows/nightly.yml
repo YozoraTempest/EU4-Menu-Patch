@@ -1,0 +1,67 @@
+name: Nightly
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: develop commit SHA (empty = current develop)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: menu-patch-publication
+  cancel-in-progress: false
+
+jobs:
+  nightly:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: sh -e {0}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: develop
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select develop commit and build date
+        id: source
+        env:
+          REQUESTED_COMMIT: ${{ inputs.commit }}
+        run: sh ./tools/select-nightly.sh
+      - name: Check existing release
+        id: preflight
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_DATE: ${{ steps.source.outputs.date }}
+        run: sh ./tools/publish-release.sh --channel Nightly --date "$BUILD_DATE" --check-only
+      - name: Build, test and package
+        if: steps.preflight.outputs.skip != 'true'
+        env:
+          BUILD_DATE: ${{ steps.source.outputs.date }}
+        run: sh ./tools/ci.sh --channel Nightly --date "$BUILD_DATE"
+      - name: Save packages and diagnostics
+        if: always() && steps.preflight.outputs.skip != 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nightly-${{ github.run_id }}
+          retention-days: 30
+          path: |
+            dist/*.zip
+            dist/SHA256SUMS.txt
+            build/*.json
+            build/*.log
+            build/*.pdb
+            build/*.map
+      - name: Publish nightly
+        if: steps.preflight.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_DATE: ${{ steps.source.outputs.date }}
+        run: sh ./tools/publish-release.sh --channel Nightly --date "$BUILD_DATE"

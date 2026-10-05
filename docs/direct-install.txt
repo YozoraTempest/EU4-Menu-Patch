@@ -1,4 +1,4 @@
-EU4 Menu Patch v0.1.1-experimental
+EU4 Menu Patch v@PATCH_VERSION@
 EU4 1.37.5.0 Inca / Windows x64
 
 点击 Back 或 Exit to Menu 时直接返回主菜单。
@@ -21,18 +21,11 @@ EU4 1.37.5.0 Inca / Windows x64
 menu transition patch initialized; author=VulonLok
 出现 REFUSED 表示补丁未应用；没有日志时检查文件位置和加载器。
 
-本版更新
-返回主菜单后，等待菜单、校验和及 Steam 房间状态就绪，再恢复多人入口。
-退出时清理旧 Steam 房间和房主状态、加入请求及房间搜索回调。
-释放上一局的迷你地图控制器、窗口和按钮回调。
-
-测试范围
-开发候选版已测试原版单人选国界面 Back 后进入 Steam 房间列表，
-以及连续两次建房、进入选国地图、返回主菜单。
-迷你地图修订已记录两次战役退出时释放控制器，界面清理和新局按钮响应尚待人工确认。
-最终发布 DLL 已通过保护检查，尚未完成完整游戏内回归。
-双客户端联机、战役同步、铁人模式和长期战役尚未验证。
-本版未复测 MEIOU 或其他模组。
+验证范围
+成品通过进程名称、研究副本路径、游戏 EXE 哈希及压缩包完整性检查。
+自动构建没有新的游戏内验证记录。
+界面清理、双客户端联机、战役同步、铁人模式和长期战役仍需人工验证。
+本版未进行新的模组回归。
 
 发布与说明：https://github.com/YozoraTempest/EU4-Menu-Patch/releases
 问题反馈：https://github.com/YozoraTempest/EU4-Menu-Patch/issues

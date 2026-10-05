@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdarg>
 #include <cstring>
+#include "patch-version.h"
 
 #pragma comment(lib, "bcrypt.lib")
 
@@ -409,7 +410,7 @@ static DWORD WINAPI install(void* module) {
     }
     AddVectoredExceptionHandler(0,observe_exception);
     InterlockedExchange(&installation_status,1);
-    log("menu transition patch initialized; author=VulonLok; version=0.1.1-experimental");
+    log("menu transition patch initialized; author=VulonLok; version=%s", EU4_MENU_PATCH_VERSION);
     return 0;
 }
 

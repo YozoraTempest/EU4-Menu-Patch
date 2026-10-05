@@ -1,45 +1,32 @@
-$ErrorActionPreference='Stop'
-$projectRoot=Split-Path $PSScriptRoot -Parent
-$patchVersion='0.1.1-experimental'
-$packageName='EU4MenuPatch-1.37.5-v'+$patchVersion
-$stageRoot=Join-Path $projectRoot ('build\package-'+[guid]::NewGuid().ToString('N'))
-$files=@(
-    'README.md','LICENSE','docs\build.md','docs\direct-install.txt','src\eu4_menu_patch.cpp','src\eu4_menu_patch.rc',
-    'build\eu4_menu_patch.dll','tools\build.ps1','tools\test-guards.ps1',
-    'tools\install.ps1','tools\uninstall.ps1','tools\package.ps1','tests\guard_host.cpp'
+param(
+    [ValidateSet('Release', 'Nightly')][string]$Channel = 'Release',
+    [string]$BuildDate = ''
 )
-foreach ($relative in $files) {
-    $target=Join-Path $stageRoot $relative
-    New-Item -ItemType Directory -Path (Split-Path $target -Parent) -Force | Out-Null
-    Copy-Item -LiteralPath (Join-Path $projectRoot $relative) -Destination $target
+. (Join-Path $PSScriptRoot 'build-common.ps1')
+$info = Get-ReleaseInfo $Channel $BuildDate
+$build = Assert-ValidatedBuild $info
+$dll = Join-Path $buildRoot 'eu4_menu_patch.dll'
+$resource = [Diagnostics.FileVersionInfo]::GetVersionInfo($dll)
+if ($resource.FileVersion -ne "$($info.Version).0" -or $resource.ProductVersion -ne $info.PatchVersion) {
+    throw 'DLL resource version does not match VERSION.'
 }
-$dllHash=(Get-FileHash -LiteralPath (Join-Path $stageRoot 'build\eu4_menu_patch.dll') -Algorithm SHA256).Hash
-$manifest=[ordered]@{
-    author='VulonLok'
-    status='experimental'
-    patch_version=$patchVersion
-    game_version='1.37.5.0 Inca Windows x64'
-    game_exe_sha256='9AD3EFE1AF169F40EE577F9DAE5DEBBC87AF6FB8B5450FB345EBF110DC4D771A'
-    patch_dll_sha256=$dllHash
-    source_sha256=(Get-FileHash -LiteralPath (Join-Path $stageRoot 'src\eu4_menu_patch.cpp') -Algorithm SHA256).Hash
-    resource_sha256=(Get-FileHash -LiteralPath (Join-Path $stageRoot 'src\eu4_menu_patch.rc') -Algorithm SHA256).Hash
-    tested_configuration='Vanilla, non-Ironman, Steam: development candidates exercised single-player Back to multiplayer browser and two host-map-return cycles; minimap controller release recorded on two campaign exits'
-    validation_limits='Final packaged DLL passed guard checks only; minimap visual cleanup and new-campaign controls await confirmation; two-client multiplayer and campaign synchronization untested; mods not revalidated'
-    validation_details='README.md'
-}
-$manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stageRoot 'manifest.json') -Encoding utf8
-$distRoot=Join-Path $projectRoot 'dist'
+$stage = Join-Path $buildRoot ('package-' + [guid]::NewGuid().ToString('N'))
+$plugins = Join-Path $stage 'plugins'
+New-Item -ItemType Directory -Path $plugins -Force | Out-Null
+Copy-Item -LiteralPath $dll -Destination (Join-Path $plugins 'eu4_menu_patch.dll')
+Copy-Item -LiteralPath (Join-Path $projectRoot 'LICENSE') -Destination (Join-Path $plugins 'eu4_menu_patch.LICENSE.txt')
+[IO.File]::WriteAllText((Join-Path $plugins 'eu4_menu_patch.README.txt'), (Get-PlayerReadme $info), [Text.UTF8Encoding]::new($false))
 New-Item -ItemType Directory -Path $distRoot -Force | Out-Null
-$zipPath=Join-Path $distRoot ($packageName+'.zip')
-Compress-Archive -Path (Join-Path $stageRoot '*') -DestinationPath $zipPath -Force
-Write-Output $zipPath
-
-$dropinRoot=Join-Path $projectRoot ('build\drop-in-'+[guid]::NewGuid().ToString('N'))
-$dropinPlugins=Join-Path $dropinRoot 'plugins'
-New-Item -ItemType Directory -Path $dropinPlugins -Force | Out-Null
-Copy-Item -LiteralPath (Join-Path $projectRoot 'build\eu4_menu_patch.dll') -Destination (Join-Path $dropinPlugins 'eu4_menu_patch.dll')
-Copy-Item -LiteralPath (Join-Path $projectRoot 'docs\direct-install.txt') -Destination (Join-Path $dropinPlugins 'eu4_menu_patch.README.txt')
-Copy-Item -LiteralPath (Join-Path $projectRoot 'LICENSE') -Destination (Join-Path $dropinPlugins 'eu4_menu_patch.LICENSE.txt')
-$dropinZip=Join-Path $distRoot ($packageName+'-drop-in.zip')
-Compress-Archive -Path (Join-Path $dropinRoot '*') -DestinationPath $dropinZip -Force
-Write-Output $dropinZip
+$zip = Join-Path $distRoot $info.PlayerPackage
+Compress-Archive -Path $plugins -DestinationPath $zip -Force
+$zipHash = Get-Sha256 $zip
+[IO.File]::WriteAllText((Join-Path $distRoot 'SHA256SUMS.txt'), "$zipHash  $($info.PlayerPackage)" + [Environment]::NewLine, [Text.Encoding]::ASCII)
+Write-Json (Join-Path $buildRoot 'package-info.json') ([ordered]@{
+    author = 'VulonLok'; version = $info.Version; tag = $info.Tag
+    channel = $info.Channel; build_date = $info.BuildDate; source_commit = $info.SourceCommit
+    player_package = $info.PlayerPackage; package_sha256 = $zipHash
+    patch_dll_sha256 = $build.patch_dll_sha256
+    automated_checks_passed = $true; game_runtime_verified = $false
+})
+& (Join-Path $PSScriptRoot 'test-package.ps1') -Channel $Channel -BuildDate $info.BuildDate
+Write-Output $zip

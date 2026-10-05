@@ -1,12 +1,14 @@
 # EU4 Menu Patch
 
+[![CI](https://github.com/YozoraTempest/EU4-Menu-Patch/actions/workflows/ci.yml/badge.svg)](https://github.com/YozoraTempest/EU4-Menu-Patch/actions/workflows/ci.yml)
+
 让《欧陆风云 IV》在点击 **Back** 或 **Exit to Menu** 时直接返回主菜单，省去退出并重新启动游戏的等待。
 
-适用于 **EU4 1.37.5.0 Inca / Windows x64**。当前版本：**v0.1.1-experimental**。
+适用于 **EU4 1.37.5.0 Inca / Windows x64**，实验补丁。
 
-[下载补丁](https://github.com/YozoraTempest/EU4-Menu-Patch/releases/download/v0.1.1-experimental/EU4MenuPatch-1.37.5-v0.1.1-experimental-drop-in.zip) · [发布说明](https://github.com/YozoraTempest/EU4-Menu-Patch/releases/tag/v0.1.1-experimental) · [问题反馈](https://github.com/YozoraTempest/EU4-Menu-Patch/issues)
+[下载补丁](https://github.com/YozoraTempest/EU4-Menu-Patch/releases) · [更新日志](CHANGELOG.md) · [问题反馈](https://github.com/YozoraTempest/EU4-Menu-Patch/issues)
 
-## v0.1.1 更新
+## 功能
 
 - 返回主菜单后，等待菜单切换完成、校验和就绪及 Steam 房间状态清空，再恢复多人入口。
 - 退出时清理 Steam 房间、房主状态、加入请求和房间搜索回调，重新注册房间事件处理。
@@ -19,7 +21,7 @@
 需要游戏目录中已有 [Matanki EU4dll](https://github.com/matanki-saito/EU4dll) 的 `VERSION.dll` 加载器，用于加载 `plugins` 中的 DLL。补丁包不附带加载器。
 
 1. 保存战役并完全退出游戏。
-2. 下载补丁 ZIP，将里面的 `plugins` 文件夹复制到 `eu4.exe` 所在目录，合并同名文件夹。
+2. 在 Releases 下载成品 ZIP（`EU4MenuPatch-1.37.5-v<版本>.zip`），将里面的 `plugins` 文件夹复制到 `eu4.exe` 所在目录，合并同名文件夹。
 3. 正常启动游戏。
 
 安装后的目录：
@@ -58,7 +60,13 @@ menu transition patch initialized; author=VulonLok
 
 ## 构建
 
-源码使用 C++17、MSVC 和 Windows SDK。构建、保护检查和打包命令见[构建说明](docs/build.md)。
+源码使用 C++17、MSVC 和 Windows SDK。在 Git for Windows 中运行：
+
+```sh
+sh ./tools/ci.sh
+```
+
+CI 检查 `main`、`develop` 的推送和 PR。Nightly 在 Actions 页面手动运行；`develop → main` PR 合并后发布实验版。构建环境、产物和发布规则见[构建说明](docs/build.md)。
 
 ## 许可证
 
