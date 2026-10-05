@@ -37,12 +37,25 @@ if [ -n "$tag_object" ]; then
     tag_commit=$object_sha
 fi
 
-release_state=$(github_value "releases/tags/$tag" '[.draft, .prerelease, (.assets | map(.name) | sort | join(","))] | map(tostring) | join("|")')
+find_release_id() {
+    gh api --paginate "repos/$repo/releases?per_page=100" \
+        --jq ".[] | select(.tag_name == \"$tag\") | .id"
+}
+
+release_id=$(find_release_id)
+release_state=
+if [ -n "$release_id" ]; then
+    release_state=$(github_value "releases/$release_id" '[.draft, .prerelease, (.assets | map(.name) | sort | join(",")), .target_commitish] | map(tostring) | join("|")')
+fi
 expected_assets="$player_package,SHA256SUMS.txt"
 if [ -n "$release_state" ]; then
     release_draft=$(printf '%s' "$release_state" | cut -d '|' -f 1)
     release_prerelease=$(printf '%s' "$release_state" | cut -d '|' -f 2)
     release_assets=$(printf '%s' "$release_state" | cut -d '|' -f 3)
+    release_target=$(printf '%s' "$release_state" | cut -d '|' -f 4)
+    if [ "$release_draft" = true ] && [ -z "$tag_commit" ]; then
+        [ "$release_target" = "$source_commit" ] || fail 'Draft release targets a different source commit.'
+    fi
     if [ "$release_draft" = false ]; then
         [ "$tag_commit" = "$source_commit" ] && [ "$release_prerelease" = true ] &&
             [ "$release_assets" = "$expected_assets" ] || fail 'Published release has a different channel or asset list.'
@@ -85,11 +98,13 @@ else
     gh release edit "$tag" --repo "$repo" --prerelease --latest=false \
         --title "EU4 Menu Patch $tag" --notes-file build/release-notes.md
 fi
+release_id=$(find_release_id)
+[ -n "$release_id" ] || fail 'Draft release was not found.'
 gh release upload "$tag" "dist/$player_package" dist/SHA256SUMS.txt --repo "$repo" --clobber
 
-uploaded=$(github_value "releases/tags/$tag" '.assets | map(.name) | sort | join(",")')
+uploaded=$(github_value "releases/$release_id" '.assets | map(.name) | sort | join(",")')
 [ "$uploaded" = "$expected_assets" ] || fail 'Draft release asset list is incomplete or unexpected.'
-gh api "repos/$repo/releases/tags/$tag" \
+gh api "repos/$repo/releases/$release_id" \
     --jq '.assets[] | .name + "|" + (.digest // "")' > build/uploaded-assets.raw
 tr -d '\r' < build/uploaded-assets.raw > build/uploaded-assets.txt
 while IFS='|' read -r asset_name asset_digest; do
