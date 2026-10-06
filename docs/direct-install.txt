@@ -2,7 +2,7 @@ EU4 Menu Patch v@PATCH_VERSION@
 EU4 1.37.5.0 Inca / Windows x64
 
 点击 Back 或 Exit to Menu 时直接返回主菜单。
-需要游戏目录中已有 Matanki EU4dll 的 VERSION.dll 加载器。
+需要游戏目录中已有支持 plugins 的 VERSION.dll 加载器，可使用 EU4dll 或 EU4 Unicode Patch 的加载器。
 加载器项目：https://github.com/matanki-saito/EU4dll
 
 安装
@@ -22,7 +22,7 @@ menu transition patch initialized; author=VulonLok
 出现 REFUSED 表示补丁未应用；没有日志时检查文件位置和加载器。
 
 验证范围
-成品通过进程名称、研究副本路径、游戏 EXE 哈希及压缩包完整性检查。
+成品通过进程名称、研究副本路径、程序布局、必要代码及压缩包完整性检查。
 自动构建没有新的游戏内验证记录。
 界面清理、双客户端联机、战役同步、铁人模式和长期战役仍需人工验证。
 本版未进行新的模组回归。

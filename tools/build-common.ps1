@@ -77,10 +77,11 @@ function Assert-BuildMatches($Info) {
         $record.tag -ne $Info.Tag -or $record.channel -ne $Info.Channel -or
         $record.build_date -ne $Info.BuildDate) { throw 'Build record does not match this source or release.' }
     if ($record.patch_dll_sha256 -ne (Get-Sha256 (Join-Path $buildRoot 'eu4_menu_patch.dll')) -or
-        $record.probe_dll_sha256 -ne (Get-Sha256 (Join-Path $buildRoot 'menu_patch_probe.dll'))) {
+        $record.probe_dll_sha256 -ne (Get-Sha256 (Join-Path $buildRoot 'menu_patch_probe.dll')) -or
+        $record.executable_check_sha256 -ne (Get-Sha256 (Join-Path $buildRoot 'executable_check.exe'))) {
         throw 'Build DLL hash mismatch.'
     }
-    foreach ($inputFile in @('src/eu4_menu_patch.cpp', 'src/eu4_menu_patch.rc', 'VERSION')) {
+    foreach ($inputFile in (Get-BuildInputNames)) {
         if ($record.source_hashes.$inputFile -ne (Get-Sha256 (Join-Path $projectRoot $inputFile))) {
             throw "Build input changed: $inputFile"
         }
@@ -92,7 +93,7 @@ function Assert-ValidatedBuild($Info) {
     Assert-CleanCheckout
     $build = Assert-BuildMatches $Info
     $validation = Get-Content -LiteralPath (Join-Path $buildRoot 'automated-validation.json') -Raw | ConvertFrom-Json
-    $expectedTests = @('release_wrong_process', 'research_isolation', 'release_wrong_executable_hash')
+    $expectedTests = @('executable_compatibility', 'release_wrong_process', 'research_isolation', 'release_incompatible_executable')
     if ($build.source_tree_dirty -ne $false -or $validation.source_tree_dirty -ne $false -or
         $validation.passed -ne $true -or $validation.source_commit -ne $Info.SourceCommit -or
         $validation.tag -ne $Info.Tag -or $validation.patch_dll_sha256 -ne $build.patch_dll_sha256 -or
@@ -101,6 +102,12 @@ function Assert-ValidatedBuild($Info) {
         throw 'Validation record does not match the tested build.'
     }
     return $build
+}
+
+function Get-BuildInputNames {
+    return @('src/eu4_menu_patch.cpp', 'src/eu4_menu_patch.rc', 'src/executable_compatibility.hpp',
+        'src/executable_compatibility.cpp', 'src/eu4_1375_profile.cpp',
+        'tools/check-executable.cpp', 'tests/executable_compatibility_tests.cpp', 'VERSION')
 }
 
 function Get-PlayerReadme($Info) {

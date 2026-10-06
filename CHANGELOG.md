@@ -1,5 +1,10 @@
 # Changelog
 
+## 未发布
+
+- EXE SHA-256 改为日志诊断，加载前检查程序布局、菜单挂钩和直接依赖的代码。
+- 安装脚本不再限定加载器哈希，支持 EU4 Unicode Patch 的 VERSION.dll。
+
 ## 0.1.2
 
 - 增加 CI、手动 Nightly 和 `develop → main` 合并后的自动发布。

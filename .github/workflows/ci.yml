@@ -39,3 +39,4 @@ jobs:
             build/*.log
             build/*.pdb
             build/*.map
+            build/executable_check.exe

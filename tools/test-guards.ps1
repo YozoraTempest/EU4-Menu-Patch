@@ -10,6 +10,8 @@ $testDir = Join-Path $buildRoot 'guard-tests'
 New-Item -ItemType Directory -Path $testDir -Force | Out-Null
 Start-Transcript -Path (Join-Path $buildRoot 'guard-tests.log') -Force | Out-Null
 try {
+    & (Join-Path $buildRoot 'executable_compatibility_tests.exe')
+    if ($LASTEXITCODE -ne 0) { throw 'Executable compatibility tests failed.' }
     Initialize-Msvc
     Push-Location $testDir
     try {
@@ -23,14 +25,14 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Research isolation guard failed.' }
         Copy-Item -LiteralPath './guard_host.exe' -Destination './eu4.exe' -Force
         & './eu4.exe' $releaseDll -2
-        if ($LASTEXITCODE -ne 0) { throw 'Release executable hash guard failed.' }
+        if ($LASTEXITCODE -ne 0) { throw 'Release incompatible-executable guard failed.' }
     } finally { Pop-Location }
     $build = Assert-BuildMatches $info
     Write-Json (Join-Path $buildRoot 'automated-validation.json') ([ordered]@{
         source_commit = $info.SourceCommit; source_tree_dirty = (Test-SourceTreeDirty); tag = $info.Tag
         patch_dll_sha256 = $build.patch_dll_sha256; probe_dll_sha256 = $build.probe_dll_sha256
         passed = $true
-        tests = @('release_wrong_process', 'research_isolation', 'release_wrong_executable_hash')
+        tests = @('executable_compatibility', 'release_wrong_process', 'research_isolation', 'release_incompatible_executable')
         game_runtime_verified = $false
     })
 } finally { Stop-Transcript | Out-Null }
