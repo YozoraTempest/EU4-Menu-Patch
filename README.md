@@ -18,7 +18,7 @@
 
 ## 安装
 
-需要游戏目录中已有 [Matanki EU4dll](https://github.com/matanki-saito/EU4dll) 的 `VERSION.dll` 加载器，用于加载 `plugins` 中的 DLL。补丁包不附带加载器。
+需要游戏目录中已有能加载 `plugins` 中 DLL 的 `VERSION.dll`，可使用 [Matanki EU4dll](https://github.com/matanki-saito/EU4dll) 或 [EU4 Unicode Patch](https://github.com/YozoraTempest/EU4-Unicode-Patch) 的加载器。补丁包不附带加载器。
 
 1. 保存战役并完全退出游戏。
 2. 在 Releases 下载成品 ZIP（`EU4MenuPatch-1.37.5-v<版本>.zip`），将里面的 `plugins` 文件夹复制到 `eu4.exe` 所在目录，合并同名文件夹。
@@ -37,6 +37,8 @@ Europa Universalis IV/
 ```
 
 更新时，退出游戏后覆盖 `plugins/eu4_menu_patch.dll`。安装不需要运行脚本；`eu4.exe` 文件保持原样，补丁在游戏启动后修改内存中的菜单切换逻辑。
+
+加载前检查 EU4 1.37.5 的程序布局、菜单挂钩及依赖代码。同一布局上的兼容 EXE 修改可以加载；整文件 SHA-256 只用于日志诊断，关键代码冲突时拒绝应用。
 
 ## 卸载
 

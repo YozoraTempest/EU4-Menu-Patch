@@ -24,7 +24,7 @@ $updates
 
 适用：EU4 1.37.5.0 Inca / Windows x64。
 
-安装：完全退出游戏，将成品 ZIP 中的 plugins 文件夹解压到 eu4.exe 所在目录并覆盖。需要已有 Matanki EU4dll 的 VERSION.dll 加载器，补丁包不附带加载器。
+安装：完全退出游戏，将成品 ZIP 中的 plugins 文件夹解压到 eu4.exe 所在目录并覆盖。需要已有支持 plugins 的 VERSION.dll 加载器，可使用 EU4dll 或 EU4 Unicode Patch 的加载器，补丁包不附带加载器。
 
 检查：自动构建通过加载保护和成品完整性检查。本构建没有新的游戏内验证记录；联机战役同步、界面清理及模组兼容性不能由 CI 确认。
 

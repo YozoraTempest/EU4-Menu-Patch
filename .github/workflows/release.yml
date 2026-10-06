@@ -51,6 +51,7 @@ jobs:
             build/*.log
             build/*.pdb
             build/*.map
+            build/executable_check.exe
       - name: Publish experimental release
         if: steps.preflight.outputs.skip != 'true'
         env:

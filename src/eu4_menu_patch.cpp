@@ -2,11 +2,12 @@
 // Author: VulonLok.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <bcrypt.h>
+#include "executable_compatibility.hpp"
 #include <cstdint>
 #include <cstdio>
 #include <cstdarg>
 #include <cstring>
+#include <exception>
 #include "patch-version.h"
 
 #pragma comment(lib, "bcrypt.lib")
@@ -22,10 +23,6 @@ static std::uint32_t previous_multiplayer_reason;
 static bool pending_session_logged;
 static constexpr wchar_t isolated_exe[] =
     L"D:\\Astra-Paradox\\repos\\EU4MenuPatch\\private\\runtime\\eu4.exe";
-static constexpr unsigned char expected_hash[32] = {
-    0x9a,0xd3,0xef,0xe1,0xaf,0x16,0x9f,0x40,0xee,0x57,0x7f,0x9d,0xae,0x5d,0xeb,0xbc,
-    0x87,0xaf,0x6f,0xb8,0xb5,0x45,0x0f,0xb3,0x45,0xeb,0xf1,0x10,0xdc,0x4d,0x77,0x1a
-};
 
 static void log(const char* format, ...) {
     char buffer[1024];
@@ -43,40 +40,6 @@ static void log(const char* format, ...) {
         WriteFile(file,buffer,prefix+length,&written,nullptr);
         CloseHandle(file);
     }
-}
-
-static bool verify_hash() {
-    BCRYPT_ALG_HANDLE algorithm = nullptr;
-    BCRYPT_HASH_HANDLE hash = nullptr;
-    if (BCryptOpenAlgorithmProvider(&algorithm,BCRYPT_SHA256_ALGORITHM,nullptr,0) < 0)
-        return false;
-    if (BCryptCreateHash(algorithm,&hash,nullptr,0,nullptr,0,0) < 0) {
-        BCryptCloseAlgorithmProvider(algorithm,0);
-        return false;
-    }
-    wchar_t executable[MAX_PATH];
-    if (!GetModuleFileNameW(nullptr,executable,MAX_PATH)) {
-        BCryptDestroyHash(hash);
-        BCryptCloseAlgorithmProvider(algorithm,0);
-        return false;
-    }
-    HANDLE file = CreateFileW(executable,GENERIC_READ,FILE_SHARE_READ,nullptr,
-        OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
-    bool success = file != INVALID_HANDLE_VALUE;
-    unsigned char block[65536];
-    DWORD read;
-    while (success) {
-        if (!ReadFile(file,block,sizeof(block),&read,nullptr)) { success=false;break; }
-        if (!read) break;
-        success = BCryptHashData(hash,block,read,0) >= 0;
-    }
-    if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
-    unsigned char digest[32];
-    success = success && BCryptFinishHash(hash,digest,sizeof(digest),0) >= 0
-        && memcmp(digest,expected_hash,sizeof(digest)) == 0;
-    BCryptDestroyHash(hash);
-    BCryptCloseAlgorithmProvider(algorithm,0);
-    return success;
 }
 
 template <typename Function> static Function engine(std::uintptr_t rva) {
@@ -333,6 +296,8 @@ static bool prepare_hook(PreparedHook& prepared,std::uintptr_t rva,
 }
 
 static bool install_hooks(void** frontend_slot,PreparedHook (&hooks)[2]) {
+    const auto ready=eu4menu::check_menu_image(image);
+    if(!ready.compatible) { log("%s",ready.error.c_str());return false; }
     DWORD frontend_protection;
     if (!VirtualProtect(frontend_slot,sizeof(void*),PAGE_READWRITE,&frontend_protection))
         return false;
@@ -363,7 +328,7 @@ static bool install_hooks(void** frontend_slot,PreparedHook (&hooks)[2]) {
     return writable == 2;
 }
 
-static DWORD WINAPI install(void* module) {
+static DWORD install_checked(void* module) {
     wchar_t path[MAX_PATH];
     if (!GetModuleFileNameW(nullptr,path,MAX_PATH)) {
         InterlockedExchange(&installation_status,-1);return 1;
@@ -383,10 +348,20 @@ static DWORD WINAPI install(void* module) {
     if (!slash) return 1;
     wcscpy_s(slash+1,MAX_PATH-(slash+1-log_path),L"eu4_menu_patch.log");
     image = reinterpret_cast<std::uint8_t*>(GetModuleHandleW(nullptr));
-    if (!verify_hash()) {
-        log("REFUSED: executable SHA-256 mismatch");
+    try {
+        const auto hash=eu4menu::executable_hash(path);
+        if(hash.sha256.empty()) log("%s",hash.error.c_str());
+        else log("Executable SHA-256: %s",hash.sha256.c_str());
+    } catch(const std::exception& error) {
+        log("Executable SHA-256 unavailable: %s",error.what());
+    }
+    const auto compatibility=eu4menu::check_menu_image(image);
+    if (!compatibility.compatible) {
+        log("%s",compatibility.error.c_str());
         InterlockedExchange(&installation_status,-2);return 2;
     }
+    log("Executable compatibility checks passed: %s; %zu code/data sites.",
+        eu4menu::eu4_1375_profile().name,compatibility.checked_sites);
     auto** frontend_slot = reinterpret_cast<void**>(image+0x1d5a8c8+0x20);
     constexpr unsigned char in_game[] = {0x48,0x8d,0x8d,0x40,0x02,0x00,0x00};
     constexpr unsigned char pregame[] = {0x66,0xc7,0x83,0x83,0x00,0x00,0x00,0x01,0x01};
@@ -412,6 +387,14 @@ static DWORD WINAPI install(void* module) {
     InterlockedExchange(&installation_status,1);
     log("menu transition patch initialized; author=VulonLok; version=%s", EU4_MENU_PATCH_VERSION);
     return 0;
+}
+
+static DWORD WINAPI install(void* module) {
+    try { return install_checked(module); }
+    catch(const std::exception& error) {
+        log("REFUSED: executable compatibility check failed: %s",error.what());
+        InterlockedExchange(&installation_status,-2);return 2;
+    }
 }
 
 BOOL WINAPI DllMain(HINSTANCE module,DWORD reason,LPVOID) {
