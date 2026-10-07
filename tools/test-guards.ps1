@@ -12,6 +12,8 @@ Start-Transcript -Path (Join-Path $buildRoot 'guard-tests.log') -Force | Out-Nul
 try {
     & (Join-Path $buildRoot 'executable_compatibility_tests.exe')
     if ($LASTEXITCODE -ne 0) { throw 'Executable compatibility tests failed.' }
+    & (Join-Path $buildRoot 'menu_transition_tests.exe')
+    if ($LASTEXITCODE -ne 0) { throw 'Menu transition lifecycle tests failed.' }
     Initialize-Msvc
     Push-Location $testDir
     try {
@@ -32,7 +34,7 @@ try {
         source_commit = $info.SourceCommit; source_tree_dirty = (Test-SourceTreeDirty); tag = $info.Tag
         patch_dll_sha256 = $build.patch_dll_sha256; probe_dll_sha256 = $build.probe_dll_sha256
         passed = $true
-        tests = @('executable_compatibility', 'release_wrong_process', 'research_isolation', 'release_incompatible_executable')
+        tests = @('executable_compatibility', 'menu_transition', 'release_wrong_process', 'research_isolation', 'release_incompatible_executable')
         game_runtime_verified = $false
     })
 } finally { Stop-Transcript | Out-Null }

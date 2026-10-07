@@ -93,7 +93,7 @@ function Assert-ValidatedBuild($Info) {
     Assert-CleanCheckout
     $build = Assert-BuildMatches $Info
     $validation = Get-Content -LiteralPath (Join-Path $buildRoot 'automated-validation.json') -Raw | ConvertFrom-Json
-    $expectedTests = @('executable_compatibility', 'release_wrong_process', 'research_isolation', 'release_incompatible_executable')
+    $expectedTests = @('executable_compatibility', 'menu_transition', 'release_wrong_process', 'research_isolation', 'release_incompatible_executable')
     if ($build.source_tree_dirty -ne $false -or $validation.source_tree_dirty -ne $false -or
         $validation.passed -ne $true -or $validation.source_commit -ne $Info.SourceCommit -or
         $validation.tag -ne $Info.Tag -or $validation.patch_dll_sha256 -ne $build.patch_dll_sha256 -or
@@ -105,9 +105,9 @@ function Assert-ValidatedBuild($Info) {
 }
 
 function Get-BuildInputNames {
-    return @('src/eu4_menu_patch.cpp', 'src/eu4_menu_patch.rc', 'src/executable_compatibility.hpp',
+    return @('src/eu4_menu_patch.cpp', 'src/eu4_menu_patch.rc', 'src/menu_transition.hpp', 'src/executable_compatibility.hpp',
         'src/executable_compatibility.cpp', 'src/eu4_1375_profile.cpp',
-        'tools/check-executable.cpp', 'tests/executable_compatibility_tests.cpp', 'VERSION')
+        'tools/check-executable.cpp', 'tests/executable_compatibility_tests.cpp', 'tests/menu_transition_tests.cpp', 'VERSION')
 }
 
 function Get-PlayerReadme($Info) {
