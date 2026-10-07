@@ -9,6 +9,7 @@
 #include <cstring>
 #include <exception>
 #include "patch-version.h"
+#include "menu_transition.hpp"
 
 #pragma comment(lib, "bcrypt.lib")
 
@@ -21,6 +22,7 @@ static std::uint8_t* pending_menu_app;
 static void* pending_menu_idler;
 static std::uint32_t previous_multiplayer_reason;
 static bool pending_session_logged;
+static eu4menu::WorldResetGate world_reset_gate;
 static constexpr wchar_t isolated_exe[] =
     L"D:\\Astra-Paradox\\repos\\EU4MenuPatch\\private\\runtime\\eu4.exe";
 
@@ -45,6 +47,15 @@ static void log(const char* format, ...) {
 template <typename Function> static Function engine(std::uintptr_t rva) {
     return reinterpret_cast<Function>(image+rva);
 }
+
+class NativeBusyScope {
+    std::uint8_t previous_=0;
+public:
+    NativeBusyScope() { engine<void*(*)(void*)>(0x470af0)(&previous_); }
+    ~NativeBusyScope() { engine<void(*)(void*)>(0x470b30)(&previous_); }
+    NativeBusyScope(const NativeBusyScope&)=delete;
+    NativeBusyScope& operator=(const NativeBusyScope&)=delete;
+};
 
 static std::uint32_t multiplayer_reason() {
     auto* world = *reinterpret_cast<std::uint8_t**>(image+0x233fe78);
@@ -146,6 +157,7 @@ static void construct_menu(std::uint8_t* app,std::uint32_t reason) {
     pending_menu_app = app;
     // SetNextIdler consumes and nulls the local owning pointer.
     pending_menu_idler = *reinterpret_cast<void**>(app+0x70);
+    world_reset_gate.queue(app,pending_menu_idler);
     previous_multiplayer_reason = reason;
     pending_session_logged = false;
     log("menu switch queued next=%p exit=%u restart=%u",
@@ -162,8 +174,8 @@ static void release_minimap(std::uint8_t* idler) {
     }
     // CInGameIdler's stock exit and destructor do not release this controller.
     // Its native destructor detaches the window, destroys its GUI children and
-    // event handlers, and frees the controller. Run after ResetGame's GUI
-    // refresh so the load wrapper cannot recreate the window afterwards.
+    // event handlers, and frees the controller. Release while the outgoing
+    // world is still alive; the menu transition must not recreate in-game GUI.
     *slot = nullptr;
     engine<void(*)(void*,unsigned int)>(0x1248740)(panel,1);
     log("in-game minimap controller released");
@@ -176,14 +188,12 @@ static void return_to_menu(void* opaque_idler) {
     const auto reason = multiplayer_reason();
     log("menu request idler=%p app=%p world=%p multiplayer_reason=%u",idler,app,before,reason);
     idler[0x12e9] = 0;
-    // The stock in-game load path uses this wrapper to release GUI state before
-    // CEU4Application::ResetGame and rebuild the GUI references afterwards.
+    NativeBusyScope busy;
     engine<void(*)(void*)>(0x80fee0)(idler);
     leave_steam_session(app);
     engine<void(*)()>(0x5cc160)();
-    engine<void(*)(void*,bool)>(0x826c20)(idler,false);
     release_minimap(idler);
-    log("reset complete world=%p",*reinterpret_cast<void**>(image+0x233fe78));
+    log("outgoing GUI released; world reset deferred until menu activation");
     construct_menu(app,reason);
 }
 
@@ -199,20 +209,26 @@ static void frontend_tick(void* idler,bool update) {
     auto* app = static_cast<std::uint8_t*>(InterlockedExchangePointer(&pending_frontend_app,nullptr));
     if (app) {
         const auto reason = multiplayer_reason();
+        NativeBusyScope busy;
         leave_steam_session(app);
-        log("frontend reset begin world=%p",*reinterpret_cast<void**>(image+0x233fe78));
+        construct_menu(app,reason);
+        return;
+    }
+    app=pending_menu_app;
+    if(app) world_reset_gate.run(app,idler,*reinterpret_cast<void**>(app+0x40),
+        *reinterpret_cast<void**>(app+0x70),[&] {
+        NativeBusyScope busy;
+        log("active menu reset begin idler=%p world=%p",idler,
+            *reinterpret_cast<void**>(image+0x233fe78));
         engine<void(*)(void*,bool)>(0x210000)(app,false);
-        // ResetGame only post-validates reloaded history when the current idler
-        // reports that it is in-game. Frontend resets need the same native pass
-        // to bind the new history effects to definition objects (including CBs).
+        // A frontend owns this reset, so history needs the native post-load
+        // validation that ResetGame performs automatically for an in-game idler.
         void* history = *reinterpret_cast<void**>(image+0x233fea0);
         log("frontend history postvalidate begin history=%p",history);
         engine<void(*)(void*)>(0x7e9b70)(history);
         log("frontend history postvalidate complete");
-        log("frontend reset complete world=%p",*reinterpret_cast<void**>(image+0x233fe78));
-        construct_menu(app,reason);
-        return;
-    }
+        log("active menu reset complete world=%p",*reinterpret_cast<void**>(image+0x233fe78));
+    });
     engine<void(*)(void*,bool)>(0x10d2e80)(idler,update);
     restore_multiplayer_access(idler);
 }

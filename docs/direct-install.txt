@@ -21,12 +21,6 @@ EU4 1.37.5.0 Inca / Windows x64
 menu transition patch initialized; author=VulonLok
 出现 REFUSED 表示补丁未应用；没有日志时检查文件位置和加载器。
 
-验证范围
-成品通过进程名称、研究副本路径、程序布局、必要代码及压缩包完整性检查。
-自动构建没有新的游戏内验证记录。
-界面清理、双客户端联机、战役同步、铁人模式和长期战役仍需人工验证。
-本版未进行新的模组回归。
-
 发布与说明：https://github.com/YozoraTempest/EU4-Menu-Patch/releases
 问题反馈：https://github.com/YozoraTempest/EU4-Menu-Patch/issues
 

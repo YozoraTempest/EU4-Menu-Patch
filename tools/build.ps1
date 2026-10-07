@@ -39,6 +39,8 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Executable checker build failed: $LASTEXITCODE" }
         & cl.exe @executable /Fo:executable_compatibility_tests.obj (Join-Path $projectRoot 'tests/executable_compatibility_tests.cpp') @compatibilityObjects /Fe:executable_compatibility_tests.exe /link bcrypt.lib
         if ($LASTEXITCODE -ne 0) { throw "Compatibility tests build failed: $LASTEXITCODE" }
+        & cl.exe @executable /Fo:menu_transition_tests.obj (Join-Path $projectRoot 'tests/menu_transition_tests.cpp') /Fe:menu_transition_tests.exe
+        if ($LASTEXITCODE -ne 0) { throw "Menu transition tests build failed: $LASTEXITCODE" }
     } finally { Pop-Location }
     $sourceHashes = [ordered]@{}
     foreach ($inputFile in (Get-BuildInputNames)) {
