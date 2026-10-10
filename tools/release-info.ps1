@@ -30,5 +30,6 @@ $updates
 
 作者：VulonLok · [QQ 交流群](https://qm.qq.com/q/Csnqqd8rUO)
 "@
+if ($Channel -eq 'Release') { $notes = $updates }
 New-Item -ItemType Directory -Path $buildRoot -Force | Out-Null
 [IO.File]::WriteAllText((Join-Path $buildRoot 'release-notes.md'), $notes + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
