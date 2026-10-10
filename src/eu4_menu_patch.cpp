@@ -265,17 +265,6 @@ static void frontend_tick(void* idler,bool update) {
     restore_multiplayer_access(idler);
 }
 
-static LONG CALLBACK observe_exception(EXCEPTION_POINTERS* exception) {
-    auto* record = exception->ExceptionRecord;
-    if (record->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-        log("exception code=%08lx RIP=%llx RVA=%llx RSP=%llx fault=%llx",
-            record->ExceptionCode,exception->ContextRecord->Rip,
-            exception->ContextRecord->Rip-reinterpret_cast<std::uintptr_t>(image),
-            exception->ContextRecord->Rsp,record->ExceptionInformation[1]);
-    }
-    return EXCEPTION_CONTINUE_SEARCH;
-}
-
 static void* allocate_near(std::uintptr_t target) {
     SYSTEM_INFO info;
     GetSystemInfo(&info);
@@ -431,7 +420,6 @@ static DWORD install_checked(void* module) {
         log("REFUSED: hook preparation or write permissions failed");
         InterlockedExchange(&installation_status,-4);return 4;
     }
-    AddVectoredExceptionHandler(0,observe_exception);
     InterlockedExchange(&installation_status,1);
     log("menu transition patch initialized; author=VulonLok; version=%s", EU4_MENU_PATCH_VERSION);
     return 0;
