@@ -4,6 +4,7 @@
 #include <windows.h>
 #include "executable_compatibility.hpp"
 #include <cstdint>
+#include <cstddef>
 #include <cstdio>
 #include <cstdarg>
 #include <cstring>
@@ -148,6 +149,29 @@ static void restore_multiplayer_access(void* opaque_idler) {
 }
 
 static void construct_menu(std::uint8_t* app,std::uint32_t reason) {
+    // The stock startup reads this record once. Returning without restarting
+    // must refresh the same cache after the exit autosave has completed.
+    struct NativeString {
+        char storage[16]{};
+        std::size_t size=0;
+        std::size_t capacity=15;
+    };
+    struct ContinueRecord {
+        NativeString strings[4];
+        bool valid=false;
+        ~ContinueRecord() {
+            for(auto& value:strings) engine<void(*)(void*)>(0x95660)(&value);
+        }
+    } record;
+    static_assert(sizeof(NativeString)==0x20);
+    static_assert(offsetof(ContinueRecord,valid)==0x80);
+    engine<void(*)(void*)>(0x5d1670)(&record);
+    // This wrapper joins any previous metadata job and replaces the app's
+    // cached save information. Updating startup's auto-continue flag would
+    // leave the menu's independent cache unchanged.
+    const NativeString empty;
+    engine<void(*)(void*,const NativeString*)>(0x2110c0)(app,record.valid?&record.strings[3]:&empty);
+    log("continue game metadata refreshed valid=%u",record.valid);
     void* allocation = engine<void*(*)(std::size_t)>(0x1a332d4)(0xb48);
     void* menu = engine<void*(*)(void*,void*,void*,void*)>(0x10d23c0)(
         allocation,*reinterpret_cast<void**>(app+0x350),
@@ -192,8 +216,16 @@ static void return_to_menu(void* opaque_idler) {
     engine<void(*)(void*)>(0x80fee0)(idler);
     leave_steam_session(app);
     engine<void(*)()>(0x5cc160)();
+    // The native campaign reload clears this owner before replacing the world
+    // (5d05d3). Merely destroying its list nodes leaves the GUI and callbacks
+    // alive, so use the engine's complete notification destructor path.
+    auto* notices=*reinterpret_cast<std::uint8_t**>(idler+0x1400);
+    if(notices) {
+        engine<void(*)(void*)>(0xdffcf0)(notices);
+        log("diplomatic notifications released");
+    }
     release_minimap(idler);
-    log("outgoing GUI released; world reset deferred until menu activation");
+    log("campaign exit cleanup complete; world reset deferred until menu activation");
     construct_menu(app,reason);
 }
 
@@ -231,17 +263,6 @@ static void frontend_tick(void* idler,bool update) {
     });
     engine<void(*)(void*,bool)>(0x10d2e80)(idler,update);
     restore_multiplayer_access(idler);
-}
-
-static LONG CALLBACK observe_exception(EXCEPTION_POINTERS* exception) {
-    auto* record = exception->ExceptionRecord;
-    if (record->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-        log("exception code=%08lx RIP=%llx RVA=%llx RSP=%llx fault=%llx",
-            record->ExceptionCode,exception->ContextRecord->Rip,
-            exception->ContextRecord->Rip-reinterpret_cast<std::uintptr_t>(image),
-            exception->ContextRecord->Rsp,record->ExceptionInformation[1]);
-    }
-    return EXCEPTION_CONTINUE_SEARCH;
 }
 
 static void* allocate_near(std::uintptr_t target) {
@@ -399,7 +420,6 @@ static DWORD install_checked(void* module) {
         log("REFUSED: hook preparation or write permissions failed");
         InterlockedExchange(&installation_status,-4);return 4;
     }
-    AddVectoredExceptionHandler(0,observe_exception);
     InterlockedExchange(&installation_status,1);
     log("menu transition patch initialized; author=VulonLok; version=%s", EU4_MENU_PATCH_VERSION);
     return 0;
